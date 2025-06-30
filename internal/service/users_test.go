@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -34,7 +35,10 @@ func TestRegisterNoError(t *testing.T) {
 		Password: "thisisapassword",
 	}
 
-	mock := &mockRepo{MockInsertUser: func(context.Context, model.Credential) error { return nil }}
+	mock := &mockRepo{
+		MockIsEmailAvailable: func(ctx context.Context, email string) error { return nil },
+		MockInsertUser:       func(context.Context, model.Credential) error { return nil },
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	service := NewUserService(mock, logger)
@@ -50,12 +54,14 @@ func TestRegisterErrorEmailAlreadyExists(t *testing.T) {
 		Password: "thisisapassword",
 	}
 
-	mock := &mockRepo{MockInsertUser: func(context.Context, model.Credential) error { return helper.ErrEmailAlreadyExists }}
+	mock := &mockRepo{
+		MockIsEmailAvailable: func(context.Context, string) error { return helper.ErrEmailAlreadyExists },
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	service := NewUserService(mock, logger)
 	err := service.Register(context.Background(), credential)
-	if err == helper.ErrEmailAlreadyExists {
+	if !errors.Is(err, helper.ErrEmailAlreadyExists) {
 		t.Errorf(err.Error())
 	}
 }
