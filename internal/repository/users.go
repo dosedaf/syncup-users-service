@@ -2,37 +2,46 @@ package repository
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/dosedaf/syncup-users-service/internal/model"
 	"github.com/jackc/pgx/v5"
 )
 
-type Repository struct {
-	conn *pgx.Conn
+type RepositoryInstance interface {
+	InsertUser(ctx context.Context, credential model.Credential) error
+	GetHashedPassword(ctx context.Context, email string) (string, error)
 }
 
-func NewUserRepository(conn *pgx.Conn) *Repository {
+type Repository struct {
+	conn   *pgx.Conn
+	logger *slog.Logger
+}
+
+func NewUserRepository(conn *pgx.Conn, logger *slog.Logger) RepositoryInstance {
 	return &Repository{
-		conn: conn,
+		conn:   conn,
+		logger: logger,
 	}
 }
 
-func (r *Repository) InsertUser(credential model.Credential) error {
+func (r *Repository) InsertUser(ctx context.Context, credential model.Credential) error {
 	query := "INSERT INTO users (email, password_hash) VALUES (@email, @password_hash)"
 	args := pgx.NamedArgs{
 		"email":         credential.Email,
 		"password_hash": string(credential.Password),
 	}
 
-	_, err := r.conn.Exec(context.Background(), query, args)
+	_, err := r.conn.Exec(ctx, query, args)
 	if err != nil {
+		r.logger.Info("failed executing query", "error", err)
 		return err
 	}
 
 	return nil
 }
 
-func (r *Repository) GetHashedPassword(email string) (string, error) {
+func (r *Repository) GetHashedPassword(ctx context.Context, email string) (string, error) {
 	query := "SELECT password_hash FROM users WHERE email=@email"
 	args := pgx.NamedArgs{
 		"email": email,
@@ -40,10 +49,11 @@ func (r *Repository) GetHashedPassword(email string) (string, error) {
 
 	var passwordDb string
 
-	row := r.conn.QueryRow(context.Background(), query, args)
+	row := r.conn.QueryRow(ctx, query, args)
 
 	err := row.Scan(&passwordDb)
 	if err != nil {
+		r.logger.Info("failed scanning the row", "error", err)
 		return "", err
 	}
 

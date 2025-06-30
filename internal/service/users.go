@@ -1,7 +1,8 @@
 package service
 
 import (
-	"log"
+	"context"
+	"log/slog"
 	"os"
 	"time"
 
@@ -12,48 +13,58 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Service struct {
-	repository *repository.Repository
+type ServiceInstance interface {
+	Register(ctx context.Context, credential model.Credential) error
+	Login(ctx context.Context, credential model.Credential) (string, error)
 }
 
-func NewUserService(repo *repository.Repository) *Service {
+type Service struct {
+	repository repository.RepositoryInstance
+	logger     *slog.Logger
+}
+
+func NewUserService(repo repository.RepositoryInstance, logger *slog.Logger) ServiceInstance {
 	return &Service{
 		repository: repo,
+		logger:     logger,
 	}
 }
 
-func (s *Service) Register(credential model.Credential) error {
+func (s *Service) Register(ctx context.Context, credential model.Credential) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(credential.Password), bcrypt.DefaultCost)
 	if err != nil {
+		s.logger.Info("failed to register", "error", err)
 		return err
 	}
 
 	credential.Password = string(hashedPassword)
 
-	err = s.repository.InsertUser(credential)
+	err = s.repository.InsertUser(ctx, credential)
 	if err != nil {
+		s.logger.Info("failed to register", "error", err)
 		return err
 	}
 
 	return nil
 }
 
-func (s *Service) Login(credential model.Credential) (string, error) {
+func (s *Service) Login(ctx context.Context, credential model.Credential) (string, error) {
 	err := godotenv.Load()
 	if err != nil {
-		log.Print(err.Error())
+		s.logger.Info("failed to login", "error", err)
 		return "", err
 	}
 
-	passwordDb, err := s.repository.GetHashedPassword(credential.Email)
+	passwordDb, err := s.repository.GetHashedPassword(ctx, credential.Email)
 	if err != nil {
+		s.logger.Info("failed to login", "error", err)
 		return "", nil
 	}
 
 	// mungkin salah pass
 	err = bcrypt.CompareHashAndPassword([]byte(passwordDb), []byte(credential.Password))
 	if err != nil {
-		log.Print(err.Error())
+		s.logger.Info("failed to login", "error", err)
 		return "", err
 	}
 
@@ -67,7 +78,7 @@ func (s *Service) Login(credential model.Credential) (string, error) {
 
 	tokenString, err := claims.SignedString([]byte(os.Getenv("SECRET")))
 	if err != nil {
-		log.Print(err.Error())
+		s.logger.Info("failed to login", "error", err)
 		return "", nil
 	}
 
