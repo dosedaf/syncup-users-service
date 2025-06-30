@@ -10,9 +10,15 @@ import (
 	"github.com/dosedaf/syncup-users-service/internal/handler"
 	"github.com/dosedaf/syncup-users-service/internal/repository"
 	"github.com/dosedaf/syncup-users-service/internal/service"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Print(err.Error())
+	}
+
 	conn, err := database.ConnectDB()
 	if err != nil {
 		log.Print(err.Error())
