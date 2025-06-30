@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -48,6 +49,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Register(ctx, *credential)
 	if err != nil {
 		h.logger.Info("failed to register", "error", err)
+		if errors.Is(err, helper.ErrEmailAlreadyExists) {
+			helper.JSONError(w, 409, "user with this email already exists")
+			return
+		}
 		helper.JSONError(w, 500, "failed to register")
 		return
 	}
@@ -76,6 +81,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	tokenStr, err := h.service.Login(ctx, *credential)
 	if err != nil {
 		h.logger.Info("failed to login", "error", err)
+		if errors.Is(err, helper.ErrUserNotFound) {
+			helper.JSONError(w, 404, "user with this email does not exists")
+			return
+		}
 		helper.JSONError(w, 500, "failed to login")
 		return
 	}

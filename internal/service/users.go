@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"github.com/dosedaf/syncup-users-service/internal/model"
 	"github.com/dosedaf/syncup-users-service/internal/repository"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -31,6 +31,12 @@ func NewUserService(repo repository.RepositoryInstance, logger *slog.Logger) Ser
 }
 
 func (s *Service) Register(ctx context.Context, credential model.Credential) error {
+	err := s.repository.IsEmailAvailable(ctx, credential.Email)
+	if err != nil {
+		s.logger.Info("failed to register", "error", err)
+		return fmt.Errorf("failed while checking email availability: %w", err)
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(credential.Password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Info("failed to register", "error", err)
@@ -42,23 +48,17 @@ func (s *Service) Register(ctx context.Context, credential model.Credential) err
 	err = s.repository.InsertUser(ctx, credential)
 	if err != nil {
 		s.logger.Info("failed to register", "error", err)
-		return err
+		return fmt.Errorf("failed while inserting new user %s: %w", credential.Email, err)
 	}
 
 	return nil
 }
 
 func (s *Service) Login(ctx context.Context, credential model.Credential) (string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		s.logger.Info("failed to login", "error", err)
-		return "", err
-	}
-
 	passwordDb, err := s.repository.GetHashedPassword(ctx, credential.Email)
 	if err != nil {
 		s.logger.Info("failed to login", "error", err)
-		return "", nil
+		return "", fmt.Errorf("failed while getting hashed password from user %s: %w", credential.Email, err)
 	}
 
 	// mungkin salah pass
@@ -79,7 +79,7 @@ func (s *Service) Login(ctx context.Context, credential model.Credential) (strin
 	tokenString, err := claims.SignedString([]byte(os.Getenv("SECRET")))
 	if err != nil {
 		s.logger.Info("failed to login", "error", err)
-		return "", nil
+		return "", err
 	}
 
 	return tokenString, nil
