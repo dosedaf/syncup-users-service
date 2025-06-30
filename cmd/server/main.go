@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/dosedaf/syncup-users-service/database"
 	"github.com/dosedaf/syncup-users-service/internal/handler"
@@ -16,9 +18,11 @@ func main() {
 		log.Print(err.Error())
 	}
 
-	repo := repository.NewUserRepository(conn)
-	service := service.NewUserService(repo)
-	handler := handler.NewUserHandler(service)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	repo := repository.NewUserRepository(conn, logger)
+	service := service.NewUserService(repo, logger)
+	handler := handler.NewUserHandler(service, logger)
 
 	http.HandleFunc("/api/v1/register", handler.Register)
 	http.HandleFunc("/api/v1/login", handler.Login)
