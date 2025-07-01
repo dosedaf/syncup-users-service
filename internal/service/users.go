@@ -111,7 +111,7 @@ func (s *Service) Login(ctx context.Context, credential model.Credential) (strin
 				"email", credential.Email,
 			)
 
-			return "", err
+			return "", helper.ErrWrongPassword
 		}
 
 		s.logger.Error(
