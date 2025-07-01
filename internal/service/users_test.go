@@ -65,3 +65,43 @@ func TestRegisterErrorEmailAlreadyExists(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 }
+
+func TestLoginNoError(t *testing.T) {
+	credential := model.Credential{
+		Email:    "test@gmail.com",
+		Password: "test",
+	}
+
+	mock := &mockRepo{
+		MockGetHashedPassword: func(ctx context.Context, email string) (string, error) {
+			return "$2a$10$LpieyNVgH6lpdKZr.bKwPOBR0m.TcppenjlPKWEm5WtUMtPk.ziry", nil
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	service := NewUserService(mock, logger)
+	_, err := service.Login(context.Background(), credential)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+}
+
+func TestLoginErrWrongPassword(t *testing.T) {
+	credential := model.Credential{
+		Email:    "test@gmail.com",
+		Password: "test",
+	}
+
+	mock := &mockRepo{
+		MockGetHashedPassword: func(ctx context.Context, email string) (string, error) {
+			return "$2a$10$jftf7wh9L9R/dzHE06ww/.fD8La7fdth8cDajh1HWY5g3wR.52Nty", nil
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	service := NewUserService(mock, logger)
+	_, err := service.Login(context.Background(), credential)
+	if !errors.Is(err, helper.ErrWrongPassword) {
+		t.Errorf(err.Error())
+	}
+}
