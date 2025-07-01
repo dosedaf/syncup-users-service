@@ -69,7 +69,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if writeErr := helper.JSONResponse(w, http.StatusOK, "user registered successfully"); writeErr != nil {
+	if writeErr := helper.JSONResponse(w, http.StatusOK, "User registered successfully", ""); writeErr != nil {
 		h.logger.Error("failed to write JSON success response", "error", writeErr)
 	}
 }
@@ -93,7 +93,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	tokenStr, err := h.service.Login(ctx, *credential)
 	if err != nil {
-		h.logger.Info("failed to login", "error", err)
 		if errors.Is(err, helper.ErrUserNotFound) {
 			h.logger.Info(
 				"User login blocked: email does not exist",
@@ -106,13 +105,31 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if errors.Is(err, helper.ErrWrongPassword) {
+			h.logger.Info(
+				"User login blocked: wrong password",
+				"email", credential.Email,
+			)
+
+			if writeErr := helper.JSONError(w, http.StatusUnauthorized, "Wrong Password"); writeErr != nil {
+				h.logger.Error("failed to write JSON error response", "error", writeErr)
+			}
+			return
+		}
+
+		h.logger.Error(
+			"Failed while logging in user",
+			"email", credential.Email,
+			"error", err,
+		)
+
 		if writeErr := helper.JSONError(w, http.StatusInternalServerError, "An internal server error occured"); writeErr != nil {
 			h.logger.Error("failed to write JSON error response", "error", writeErr)
 		}
 		return
 	}
 
-	if writeErr := helper.JSONResponse(w, http.StatusOK, tokenStr); writeErr != nil {
+	if writeErr := helper.JSONResponse(w, http.StatusOK, "User login successfully", tokenStr); writeErr != nil {
 		h.logger.Error("failed to write JSON success response", "error", writeErr)
 	}
 }
