@@ -82,6 +82,15 @@ func (s *Service) Register(ctx context.Context, credential model.Credential) err
 func (s *Service) Login(ctx context.Context, credential model.Credential) (string, error) {
 	passwordDb, err := s.repository.GetHashedPassword(ctx, credential.Email)
 	if err != nil {
+		if errors.Is(err, helper.ErrUserNotFound) {
+			s.logger.Info(
+				"User login blocked: user with this email does not exist",
+				"email", credential.Email,
+			)
+
+			return "", err
+		}
+
 		s.logger.Error(
 			"Failed while getting hashed password",
 			"email", credential.Email,
