@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 
@@ -32,49 +30,64 @@ func NewUserHandler(service service.ServiceInstance, logger *slog.Logger) Handle
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	credential := &model.Credential{}
-	body, err := io.ReadAll(r.Body)
+	err := helper.ReadJSONRequest(r, credential)
 	if err != nil {
-		h.logger.Info("failed to register", "error", err)
-		helper.JSONError(w, 500, "failed to register")
-		return
-	}
+		h.logger.Error(
+			"Failed while reading JSON request",
+			"error", err,
+		)
 
-	err = json.Unmarshal(body, credential)
-	if err != nil {
-		h.logger.Info("failed to register", "error", err)
-		helper.JSONError(w, 500, "failed to register")
+		if writeErr := helper.JSONError(w, http.StatusInternalServerError, "An internal server error occured"); writeErr != nil {
+			h.logger.Error("failed to write JSON error response", "error", writeErr)
+		}
 		return
 	}
 
 	err = h.service.Register(ctx, *credential)
 	if err != nil {
-		h.logger.Info("failed to register", "error", err)
 		if errors.Is(err, helper.ErrEmailAlreadyExists) {
-			helper.JSONError(w, 409, "user with this email already exists")
+			h.logger.Info(
+				"User registration blocked: email already exists",
+				"email", credential.Email,
+			)
+
+			if writeErr := helper.JSONError(w, http.StatusConflict, "User with this email already exists"); writeErr != nil {
+				h.logger.Error("failed to write JSON error response", "error", writeErr)
+			}
 			return
 		}
-		helper.JSONError(w, 500, "failed to register")
+
+		h.logger.Error(
+			"Failed while registering new user",
+			"email", credential.Email,
+			"error", err,
+		)
+
+		if writeErr := helper.JSONError(w, http.StatusInternalServerError, "An internal server error occured"); writeErr != nil {
+			h.logger.Error("failed to write JSON error response", "error", writeErr)
+		}
 		return
 	}
 
-	helper.JSONResponse(w, 200, "")
+	if writeErr := helper.JSONResponse(w, http.StatusOK, "user registered successfully"); writeErr != nil {
+		h.logger.Error("failed to write JSON success response", "error", writeErr)
+	}
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	credential := &model.Credential{}
 
-	body, err := io.ReadAll(r.Body)
+	err := helper.ReadJSONRequest(r, credential)
 	if err != nil {
-		h.logger.Info("failed to login", "error", err)
-		helper.JSONError(w, 500, "failed to login")
-		return
-	}
+		h.logger.Error(
+			"Failed while reading JSON request",
+			"error", err,
+		)
 
-	err = json.Unmarshal(body, credential)
-	if err != nil {
-		h.logger.Info("failed to login", "error", err)
-		helper.JSONError(w, 500, "failed to login")
+		if writeErr := helper.JSONError(w, http.StatusInternalServerError, "An internal server error occured"); writeErr != nil {
+			h.logger.Error("failed to write JSON error response", "error", writeErr)
+		}
 		return
 	}
 
@@ -82,12 +95,24 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Info("failed to login", "error", err)
 		if errors.Is(err, helper.ErrUserNotFound) {
-			helper.JSONError(w, 404, "user with this email does not exists")
+			h.logger.Info(
+				"User login blocked: email does not exist",
+				"email", credential.Email,
+			)
+
+			if writeErr := helper.JSONError(w, http.StatusNotFound, "User with this email does not exist"); writeErr != nil {
+				h.logger.Error("failed to write JSON error response", "error", writeErr)
+			}
 			return
 		}
-		helper.JSONError(w, 500, "failed to login")
+
+		if writeErr := helper.JSONError(w, http.StatusInternalServerError, "An internal server error occured"); writeErr != nil {
+			h.logger.Error("failed to write JSON error response", "error", writeErr)
+		}
 		return
 	}
 
-	helper.JSONResponse(w, 200, tokenStr)
+	if writeErr := helper.JSONResponse(w, http.StatusOK, tokenStr); writeErr != nil {
+		h.logger.Error("failed to write JSON success response", "error", writeErr)
+	}
 }
