@@ -44,6 +44,12 @@ func (r *Repository) IsEmailAvailable(ctx context.Context, email string) error {
 			return nil
 		}
 
+		r.logger.Error(
+			"Failed while scanning row",
+			"email", email,
+			"error", err,
+		)
+
 		return err
 	}
 
@@ -59,7 +65,12 @@ func (r *Repository) InsertUser(ctx context.Context, credential model.Credential
 
 	_, err := r.conn.Exec(ctx, query, args)
 	if err != nil {
-		r.logger.Info("failed executing query", "error", err)
+		r.logger.Error(
+			"Failed while executing query",
+			"email", credential.Email,
+			"error", err,
+		)
+
 		return err
 	}
 
@@ -78,10 +89,16 @@ func (r *Repository) GetHashedPassword(ctx context.Context, email string) (strin
 
 	err := row.Scan(&passwordDb)
 	if err != nil {
-		r.logger.Info("failed scanning the row", "error", err)
 		if errors.Is(err, pgx.ErrNoRows) {
+			// no log, since not found isnt a service error
 			return "", helper.ErrUserNotFound
 		}
+
+		r.logger.Error(
+			"Failed while scanning the row",
+			"email", email,
+			"error", err,
+		)
 
 		return "", err
 	}
