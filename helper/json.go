@@ -7,7 +7,7 @@ import (
 
 type Response struct {
 	Message string `json:"message"`
-	Data    string `json:"data"`
+	Data    any    `json:"data"`
 }
 
 type Error struct {
@@ -18,7 +18,7 @@ func ReadJSONRequest(r *http.Request, v any) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func JSONResponse(w http.ResponseWriter, code int, msg string, data string) error {
+func JSONResponse(w http.ResponseWriter, code int, msg string, data any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
