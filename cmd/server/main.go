@@ -10,6 +10,7 @@ import (
 	"github.com/dosedaf/syncup-users-service/internal/handler"
 	"github.com/dosedaf/syncup-users-service/internal/repository"
 	"github.com/dosedaf/syncup-users-service/internal/service"
+	"github.com/dosedaf/syncup-users-service/middleware"
 	"github.com/joho/godotenv"
 )
 
@@ -24,14 +25,25 @@ func main() {
 		log.Print(err.Error())
 	}
 
+	jwtSecret := os.Getenv("SECRET")
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	repo := repository.NewUserRepository(conn, logger)
-	service := service.NewUserService(repo, logger)
+	service := service.NewUserService(repo, logger, jwtSecret)
 	handler := handler.NewUserHandler(service, logger)
 
-	http.HandleFunc("/api/v1/register", handler.Register)
-	http.HandleFunc("/api/v1/login", handler.Login)
+	middleware := middleware.NewMiddleware(repo, logger, jwtSecret)
 
-	http.ListenAndServe(":3000", nil)
+	mux := http.NewServeMux()
+
+	mux.Handle("POST /api/v1/register", http.HandlerFunc(handler.Register))
+	mux.Handle("POST /api/v1/login", http.HandlerFunc(handler.Login))
+	mux.Handle("GET /api/v1/me", middleware.JWTMiddleware(http.HandlerFunc(handler.Me)))
+
+	// http.HandleFunc("/api/v1/register", handler.Register)
+	//http.HandleFunc("/api/v1/login", handler.Login)
+
+	err = http.ListenAndServe(":3000", mux)
+	log.Fatal(err)
 }
