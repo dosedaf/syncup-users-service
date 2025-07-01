@@ -8,11 +8,13 @@ import (
 	"github.com/dosedaf/syncup-users-service/helper"
 	"github.com/dosedaf/syncup-users-service/internal/model"
 	"github.com/dosedaf/syncup-users-service/internal/service"
+	"github.com/dosedaf/syncup-users-service/middleware"
 )
 
 type HandlerInstance interface {
 	Register(w http.ResponseWriter, r *http.Request)
 	Login(w http.ResponseWriter, r *http.Request)
+	Me(w http.ResponseWriter, r *http.Request)
 }
 
 type Handler struct {
@@ -131,5 +133,28 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	if writeErr := helper.JSONResponse(w, http.StatusOK, "User login successfully", tokenStr); writeErr != nil {
 		h.logger.Error("failed to write JSON success response", "error", writeErr)
+	}
+}
+
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(middleware.UserContextKey).(*model.User)
+	if !ok {
+		h.logger.Error("Failed to get user from context")
+		if writeErr := helper.JSONError(w, http.StatusInternalServerError, "An internal server error occured"); writeErr != nil {
+			h.logger.Error("failed to write JSON error response", "error", writeErr)
+		}
+		return
+	}
+
+	response := struct {
+		ID    int    `json:"id"`
+		Email string `json:"email"`
+	}{
+		ID:    user.ID,
+		Email: user.Email,
+	}
+
+	if err := helper.JSONResponse(w, http.StatusOK, "User details retrieved successfully", response); err != nil {
+		h.logger.Error("failed to write JSON success response", "error", err)
 	}
 }

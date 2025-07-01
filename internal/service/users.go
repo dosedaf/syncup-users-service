@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/dosedaf/syncup-users-service/helper"
@@ -23,12 +22,14 @@ type ServiceInstance interface {
 type Service struct {
 	repository repository.RepositoryInstance
 	logger     *slog.Logger
+	jwtSecret  []byte
 }
 
-func NewUserService(repo repository.RepositoryInstance, logger *slog.Logger) ServiceInstance {
+func NewUserService(repo repository.RepositoryInstance, logger *slog.Logger, jwtSecret string) ServiceInstance {
 	return &Service{
 		repository: repo,
 		logger:     logger,
+		jwtSecret:  []byte(jwtSecret),
 	}
 }
 
@@ -130,7 +131,7 @@ func (s *Service) Login(ctx context.Context, credential model.Credential) (strin
 		"iat": time.Now().Unix(),
 	})
 
-	tokenString, err := claims.SignedString([]byte(os.Getenv("SECRET")))
+	tokenString, err := claims.SignedString(s.jwtSecret)
 	if err != nil {
 		s.logger.Error(
 			"Failed while getting signed string",

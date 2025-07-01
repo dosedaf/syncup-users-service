@@ -11,6 +11,7 @@ import (
 )
 
 type RepositoryInstance interface {
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 	IsEmailAvailable(ctx context.Context, email string) error
 	InsertUser(ctx context.Context, credential model.Credential) error
 	GetHashedPassword(ctx context.Context, email string) (string, error)
@@ -26,6 +27,39 @@ func NewUserRepository(conn *pgx.Conn, logger *slog.Logger) RepositoryInstance {
 		conn:   conn,
 		logger: logger,
 	}
+}
+
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	query := "SELECT id, email, password_hash, created_at, updated_at FROM users WHERE email=@email"
+	args := pgx.NamedArgs{
+		"email": email,
+	}
+
+	row := r.conn.QueryRow(ctx, query, args)
+	user := &model.User{}
+
+	err := row.Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, helper.ErrUserNotFound
+		}
+
+		r.logger.Error(
+			"Failed while scanning for user by email",
+			"email", email,
+			"error", err,
+		)
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (r *Repository) IsEmailAvailable(ctx context.Context, email string) error {

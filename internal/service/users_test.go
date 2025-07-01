@@ -12,9 +12,14 @@ import (
 )
 
 type mockRepo struct {
+	MockGetUserByEmail    func(ctx context.Context, email string) (*model.User, error)
 	MockIsEmailAvailable  func(ctx context.Context, email string) error
 	MockInsertUser        func(ctx context.Context, credential model.Credential) error
 	MockGetHashedPassword func(ctx context.Context, email string) (string, error)
+}
+
+func (m *mockRepo) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	return m.MockGetUserByEmail(ctx, email)
 }
 
 func (m *mockRepo) IsEmailAvailable(ctx context.Context, email string) error {
@@ -41,7 +46,7 @@ func TestRegisterNoError(t *testing.T) {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	service := NewUserService(mock, logger)
+	service := NewUserService(mock, logger, "dummy scretaljwlkdjflsjdfjldjf")
 	err := service.Register(context.Background(), credential)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -59,7 +64,7 @@ func TestRegisterErrorEmailAlreadyExists(t *testing.T) {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	service := NewUserService(mock, logger)
+	service := NewUserService(mock, logger, "dummy scretaljwlkdjflsjdfjldjf")
 	err := service.Register(context.Background(), credential)
 	if !errors.Is(err, helper.ErrEmailAlreadyExists) {
 		t.Errorf(err.Error())
@@ -79,7 +84,7 @@ func TestLoginNoError(t *testing.T) {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	service := NewUserService(mock, logger)
+	service := NewUserService(mock, logger, "dummy scretaljwlkdjflsjdfjldjf")
 	_, err := service.Login(context.Background(), credential)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -99,7 +104,7 @@ func TestLoginErrWrongPassword(t *testing.T) {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	service := NewUserService(mock, logger)
+	service := NewUserService(mock, logger, "dummy scretaljwlkdjflsjdfjldjf")
 	_, err := service.Login(context.Background(), credential)
 	if !errors.Is(err, helper.ErrWrongPassword) {
 		t.Errorf(err.Error())
