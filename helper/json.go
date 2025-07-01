@@ -14,6 +14,10 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+func ReadJSONRequest(r *http.Request, v any) error {
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
 func JSONResponse(w http.ResponseWriter, code int, data string) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
