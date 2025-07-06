@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:15
+    container_name: users_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: users_service
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db:5432/db?sslmode=disable
+      - JWT_SECRET=${SECRET}
+volumes:
+  postgres_data:
