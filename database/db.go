@@ -10,7 +10,7 @@ import (
 
 func ConnectDB() (*pgx.Conn, error) {
 	fmt.Println("Starting connection with Postgres Db")
-	connStr := "postgres://postgres:password@localhost:5432/db?sslmode=disable"
+	connStr := "postgres://postgres:password@db:5432/db?sslmode=disable"
 	conn, err := pgx.Connect(context.Background(), connStr)
 	if err != nil {
 		log.Fatal(err)
